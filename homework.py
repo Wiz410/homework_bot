@@ -28,30 +28,23 @@ HOMEWORK_VERDICTS: dict[str, str] = {
     'rejected': 'Работа проверена: у ревьюера есть замечания.'
 }
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    handlers=[StreamHandler(sys.stdout)],
-    format='%(asctime)s [%(levelname)s] %(message)s'
-)
 
-
-def check_tokens() -> None:
+def check_tokens() -> bool:
     """Проверка начилия переменных окружения.
 
     Проверка наличия необходимых для работы бота
     переменных окружения в файле .env.
+
+    Returns:
+        True (bool): Все переменные доступны.
+        False (bool): Все или часть переменных не доступны.
     """
     tokens = (
         PRACTICUM_TOKEN,
         TELEGRAM_TOKEN,
         TELEGRAM_CHAT_ID,
     )
-    for token in tokens:
-        message = f'Отсутствует обязательная переменная окружения: {token}.'
-        if token is None:
-            logging.critical(message)
-            raise ValueError(message)
-    logging.debug('Переменные окружения доступны.')
+    return all(tokens)
 
 
 def send_message(bot: Bot, message: str) -> None:
@@ -61,11 +54,16 @@ def send_message(bot: Bot, message: str) -> None:
         bot (telegram.Bot): Экземпляр Bot.
         message (str): Подготовленное сообщение.
     """
+    logging.debug('Отправка сообщения.')
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
+    except Exception as error:
+        logging.error(
+            f'Боту не удалось отправить сообщение! '
+            f'Ошибка: {error}.'
+        )
+    else:
         logging.debug(f'Бот отправил сообщение "{message}"')
-    except Exception:
-        logging.error('Боту не удалось отправить сообщение!')
 
 
 def get_api_answer(timestamp: int) -> dict:
@@ -77,15 +75,21 @@ def get_api_answer(timestamp: int) -> dict:
     Returns:
         response (dict): Ответ API приведенный к типу данных: словарь.
     """
-    payload = {'from_date': timestamp}
+    logging.debug('Отправка запроса к API.')
+    request_params: dict[str, str or dict[str, int]] = {
+        'url': ENDPOINT,
+        'headers': HEADERS,
+        'params': {'from_date': timestamp},
+    }
     try:
-        response = requests.get(url=ENDPOINT, headers=HEADERS, params=payload)
+        response = requests.get(**request_params)
     except Exception as error:
         logging.error(error)
     if response.status_code != HTTPStatus.OK:
         message: str = (
-            f'Данные от API не получены, '
-            f'ответ сервера: {response.status_code}'
+            f'Данные от API не получены. '
+            f'Параметры запроса: {request_params}. '
+            f'Ответ сервера: {response.text} код: {response.status_code}.'
         )
         logging.error(message)
         raise Exception(message)
@@ -105,7 +109,8 @@ def check_response(response: dict) -> dict:
             ответ вернется без изменений.
         homeworks (dict): Иначе словарь из списка homeworks
     """
-    if type(response) != dict:
+    logging.debug('Проверки ответа API.')
+    if isinstance(response, dict) is False:
         logging.error(
             f'Полученные данные отличаются от словаря (dict) '
             f'тип данных: {type(response)}!'
@@ -119,15 +124,21 @@ def check_response(response: dict) -> dict:
             logging.error(message)
             raise KeyError(message)
     key_homeworks: str = 'homeworks'
-    if type(response.get(key_homeworks)) != list:
+    if isinstance(response.get(key_homeworks), list) is False:
         message: str = f'{key_homeworks} не содержит список.'
         logging.error(message)
         raise TypeError(message)
     elif len(response.get(key_homeworks)) == 0:
-        logging.debug('Ответ от API проверен, нет новых данных.')
+        logging.debug(
+            'Проверка закончена: в ответ от API, '
+            'нет новых домашних работ.'
+        )
         return response
     else:
-        logging.debug('Ответ от API проверен.')
+        logging.debug(
+            'Проверка закончена: '
+            'в ответ от API есть новая домашняя работа.'
+        )
         homeworks: list = response.get(key_homeworks)
         return homeworks[0]
 
@@ -141,12 +152,17 @@ def parse_status(homework: dict) -> str:
     Args:
         homework (dict): Ответ API или словарь из списка homeworks.
     """
+    logging.debug('Получения информации из ответа.')
     get_homeworks = homework.get('homeworks')
     if get_homeworks is not None and len(get_homeworks) == 0:
-        message: str = 'Нет новых статусов о работе.'
+        message: str = 'Нет новых домашних работ.'
         logging.debug(message)
         return message
-    for key in 'homework_name', 'status':
+    keys = (
+        'status',
+        'homework_name',
+    )
+    for key in keys:
         if key not in homework:
             message: str = f'В ответе API нет ключа: {key}.'
             logging.error(message)
@@ -175,12 +191,18 @@ def main() -> None:
             Отправка сообщения.
         Повторение через 10 минут.
     """
-    check_tokens()
+    logging.debug('Проверка переменных окружения.')
+    if check_tokens() is False:
+        message: str = 'Переменные окружения не доступны, бот остановлен.'
+        logging.critical(message)
+        raise SystemExit(message)
+    logging.debug('Проверка закончена: переменные окружения доступны.')
     bot: Bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp: int = int(time.time())
     last_time: bool or int = None
     last_message: str = ''
     last_error: str = ''
+    last_status: str = ''
     while True:
         try:
             if last_time is not None:
@@ -190,6 +212,11 @@ def main() -> None:
             last_time = response.get('current_date')
             homework = check_response(response)
             message = parse_status(homework)
+            if 'status' in homework and last_status != homework['status']:
+                last_status = homework['status']
+                logging.debug('Статус изменился.')
+            else:
+                logging.debug('Статус не изменился.')
             if message != last_message:
                 send_message(bot, message)
                 last_message = message
@@ -204,4 +231,14 @@ def main() -> None:
 
 
 if __name__ == '__main__':
+    logging.basicConfig(
+        level=logging.DEBUG,
+        handlers=[StreamHandler(sys.stdout)],
+        format=(
+            '%(asctime)s '
+            '[%(funcName)s - %(lineno)d] '
+            '[%(levelname)s] '
+            '%(message)s'
+        ),
+    )
     main()
