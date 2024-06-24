@@ -1,6 +1,5 @@
 # Homework Bot
-Бот-ассистент для Telegram.
-Позволяет удобно отслеживать статус проекта через telegram.
+Бот-ассистент для Telegram — удобный способ отслеживать статус проекта.
 
 Бот может:
 - Опрашивать раз в 10 минут API Практикум Домашка.
@@ -16,8 +15,27 @@
 ### Запуск проекта
 Клонируйте проект и перейдите в его директорию:
 ```bash
-git@github.com:Wiz410/homework_bot.git
+git clone git@github.com:Wiz410/homework_bot.git
 cd homework_bot
+```
+
+Cоздайте и активируйте виртуальное окружение:
+- Для Windows
+```bash
+python -m venv venv
+source venv/Scripts/activate
+```
+
+- Для Linux и macOS
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+Установите зависимости из файла `requirements.txt`:
+```bash
+python -m pip install --upgrade pip
+pip install -r requirements.txt
 ```
 
 Создайте файл `.env`:
