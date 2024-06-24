@@ -107,7 +107,7 @@ def check_response(response: dict) -> dict:
     Returns:
         response (dict): Если в ответе API список homeworks пустой
             ответ вернется без изменений.
-        homeworks (dict): Иначе словарь из списка homeworks
+        homeworks (dict): Иначе словарь из списка homeworks.
     """
     logging.debug('Проверки ответа API.')
     if isinstance(response, dict) is False:
