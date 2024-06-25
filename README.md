@@ -55,5 +55,5 @@ TELEGRAM_CHAT_ID=ID_user https://t.me/userinfobot
 python homework.py
 ```
 
-#### Авторы
+#### Автор
 - [Danila Polunin](https://github.com/Wiz410)
