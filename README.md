@@ -45,7 +45,7 @@ touch .env
 
 И заполните его:
 ```env
-PRACTICUM_TOKEN=API_Token_YP https://oauth.yandex.ru/authorize?response_type=token&client_id=1d0b9dd4d652455a9eb710d450ff456a.
+PRACTICUM_TOKEN=API_Token_YP ...
 TELEGRAM_TOKEN=API_Token https://t.me/BotFather
 TELEGRAM_CHAT_ID=ID_user https://t.me/userinfobot
 ```
